@@ -1,0 +1,128 @@
+import time
+from mip import Model, xsum, minimize, BINARY, GRB, OptimizationStatus
+import numpy as np
+import random
+import gurobipy as gp
+import time
+
+'''
+#PROVE INIZIALI
+#costi degli elementi c
+c = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+#pesi degli elementi w
+w = [0.025, 0.015, 0.07, 0.085, 0.065, 0.11, 0.04, 0.055, 0.025, 0.01, 0.01, 0.04, 0.045, 0.07, 0.08, 0.08,
+    0.07, 0.06, 0.04, 0.005]
+#numero di elementi J e I
+n = len(w)
+'''
+
+#4 tentativi
+tentativi = 0
+# n = 100, 200, 400
+n = 200
+# costante q -> peso minimo degli oggetti
+# q = 0.95, 0.5 (x20)
+q = 0.95
+# distanza max
+# delta = 3, 5, 10
+delta = 3
+
+# generazione dei costi -> metodo RANDOM:
+
+outfile = open("test_finale.txt", 'a', encoding="utf-8")
+while tentativi < 4:
+    c = [random.uniform(1, 10) for x in range(n)]
+
+    # generazione dei pesi
+
+    # METODO NOISE
+
+    w = np.zeros(n)
+    # inizio il processo di generazione dei pesi
+    mean = 0
+    std_dev = 1/(4*n)**1/2
+    # normalizzazione
+    arr = np.random.normal(loc=mean, scale=std_dev, size=n)
+    for i in range(n):
+        w[i] = 1/n + arr[i]
+        if w[i] < 10**(-12):
+            w[i] = 10**(-12)
+        
+    w = w/np.linalg.norm(w)
+
+    '''
+    # METODO ONE PEAK
+
+    l = np.random.normal(n/2, n/4)
+    l = round(l)
+    k = 32
+    arr = np.random.normal(loc=l, scale=n/k, size=5000)
+    hist, bins = np.histogram(arr, bins=n)
+    w = np.zeros(n)
+    for i in range(n):
+        if hist[i] < 10**(-12):
+            w[i] = 10**(-12)
+        else:
+            w[i] = hist[i]
+    w = w/np.linalg.norm(w)
+'''
+
+    # Modello lineare tramite solver GUROBI
+    m = Model("Knapsack", solver_name=GRB)
+
+    # creo le variabili binarie x
+    x = [m.add_var(var_type=BINARY) for j in range(n)]
+
+    # funzione obiettivo -> minimizzo la sommatoria dei costi degli elementi presi (x=1)
+    m.objective = minimize(xsum(c[j]*x[j] for j in range(n)))
+
+    # vincolo sul peso (la sommatoria dei pesi degli elementi presi dev'essere >= alla costante q)
+    m += xsum(w[j]*x[j] for j in range(n)) >= q
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if j > i + delta:
+                m += ((j - i - 1)/delta)*(x[i] + x[j] - 1) <= xsum(x[k] for k in range(i+1, j))
+
+    time_limit_seconds = 300
+    start_time = time.time()
+    # ottimizzo
+    status = m.optimize(max_seconds=time_limit_seconds)
+
+    end_time = time.time()
+    # Calcolo del tempo di esecuzione
+    execution_time = end_time - start_time
+
+    m.write('model.lp')
+
+    # stampa su console
+    print("sample size (n): %d" % n)
+    # lista degli elementi selezionati per cui x vale più di 0.99
+    selected = [j for j in range(n) if x[j].x >= 0.99]
+    print("selected items : {}".format(selected))
+    tot_cost = m.objective_value
+    print("Funzione obiettivo: {}\n".format(tot_cost))
+    print("Tempo di risoluzione: {}\n".format(execution_time))
+
+    # stampa su file di testo
+    # per ogni istanza ho nella prima riga i dati in input e nella seconda i risultati
+    # prima del PL e poi dell'euristica
+    # legenda input: n; delta; q; [c]; [w]\n
+    # legenda output: fObiettivo, time, status, best bound; fObiettivo; time; status; best bound
+
+    outfile.write("%d; %d; %f; " % (n, delta, q))
+    outfile.write("{};  ".format(c))
+    formatted_data = " ".join(map(str, w))
+    outfile.write(formatted_data)
+    outfile.write("\n")
+    outfile.write("f obiettivo: {}, ".format(m.objective_value))
+    outfile.write("Time: {}, ".format(execution_time))
+    # verifica dello stato della soluzione
+    if execution_time < time_limit_seconds:
+        outfile.write("Status: optimal, ")
+    else:
+        outfile.write("Status: feasible, ")
+    outfile.write("Best bound: {}; \n".format(m.objective_bound))
+    tentativi = tentativi + 1
+
+outfile.close()
