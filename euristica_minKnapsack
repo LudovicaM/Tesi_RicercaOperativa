@@ -1,0 +1,115 @@
+import ast
+import numpy as np
+import random
+import time
+# questa funzione mi ritorna una lista di chiavi associate al valore passato
+# quindi anche 2 indici associati allo stesso rapporto
+
+
+def trova_chiavi_da_valore(dizionario, valore):
+    chiavi_corrispondenti = []
+    for chiave, valore_attuale in dizionario.items():
+        if valore_attuale == valore:
+            chiavi_corrispondenti.append(chiave)
+    return chiavi_corrispondenti
+
+
+with open("test_finale.txt", "r", encoding="utf-8") as infile, open("test_completi.txt", "a", encoding="utf-8") as outfile:
+
+    '''
+    #PROVE INIZIALI
+    
+    #costi degli elementi c
+    c = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    #pesi degli elementi w
+    w = [0.025, 0.015, 0.07, 0.085, 0.065, 0.11, 0.04, 0.055, 0.025, 0.01, 0.01, 0.04, 0.045, 0.07, 0.08, 0.08,
+        0.07, 0.06, 0.04, 0.005]
+    #numero di elementi J e I
+    n = len(w)
+    '''
+
+    #prendo i dati in input dal file di lettura
+    for line in infile:
+        if line != '':
+            #per ogni istanza ho nella prima riga i dati in input e nella seconda i risultati
+            #prima del PL e poi dell'euristica
+            #legenda input: n; delta; q; [c]; [w]\n
+            #legenda output: fObiettivo, time, status, best bound; fObiettivo, time, status, best bound\n
+            outfile.write(line)
+            dati = line.split('; ')
+            n = int(dati[0])
+            delta = int(dati[1])
+            q = float(dati[2])
+            c = ast.literal_eval(dati[3])
+            pesi = dati[4].strip("[]").split()
+            w = [float(x) for x in pesi]
+            print(len(c), len(w))
+            #qua inizia l'algoritmo dopo aver letto tutti i dati in input
+            start_time = time.time()
+            #ALGORITMO EURISTICO
+            # creo un array ordinato in modo crescente che contiene i rapporti costo/peso
+            arr = []
+            index_dic = {}  # mi salvo gli indici per ogni rapporto. Key: indice, Value: rapporto
+            indici = {}  # uguale al precedente ma da qua li tolgo man mano che seleziono gli items
+            for i in range(n):
+                arr.append(c[i] / w[i])
+                index_dic[i] = arr[i]
+                indici[i] = arr[i]
+            arr.sort()  # arr è ordinato in modo crescente in base al rapporto costo/peso
+            # scorro l'array dall'inizio alla fine perchè i primi valori saranno quelli con costo minimo e peso maggiore
+            # array vuoto 'selected' in cui vado ad aggiungere man mano i valori che seleziono
+            # ovvero quelli che rispettano il vincolo di compattezza
+            selected = []
+            # aggiungo a 'selected' solo gli indici di posizione
+            # aggiungo il primo elemento (costo minore e peso maggiore)
+            chiavi = trova_chiavi_da_valore(index_dic, arr[0])
+            # chiavi è una lista di indici di posizione corrispondenti al valore passato
+            selected.append(chiavi[0])
+            indici.pop(chiavi[0])
+            w_tot = w[chiavi[0]]  # aggiungo al peso totale il peso del primo elemento selezionato
+            while len(indici) != 0 and w_tot < q:
+                for iterazione in range(1, n):  # continuo a iterare finchè non finiscono gli elementi
+                    trovato = False
+                    if w_tot >= q:  # sono arrivata alla soluzione ed esco dalla iterazione del for
+                        break
+                    else:
+                        chiavi = trova_chiavi_da_valore(indici, arr[iterazione])
+                        for z in range(len(chiavi)):
+                            index2 = chiavi[z]  # indice dell'elemento che sto considerando
+                            for itt in range(len(selected)):
+                                index1 = selected[itt]  # indice degli elementi già selezionati
+                                if abs(index2 - index1) <= delta:
+                                    # se entra nell'if posso selezionare il valore e andare avanti, basta che il vincolo
+                                    # di compattezza sia rispettato per UNO degli elementi già selezionati
+                                    # QUINDI aggiungo a selected il rapporto dell'elemento che sto considerando {index2}
+                                    selected.append(index2)
+                                    # aggiorno anche il peso totale
+                                    w_tot = w_tot + w[index2]
+                                    indici.pop(chiavi[z])
+                                    trovato = True
+                                    break  # esco dal ciclo che itera sugli elementi già selezionati
+                            break
+                        if trovato == True:
+                            break
+            #calcolo il valore della soluzione
+            fObb = 0
+            for i in range(len(selected)):
+                fObb = fObb + c[selected[i]]
+            # rilevo il tempo di esecuzione
+            end_time = time.time()
+            execution_time = end_time - start_time
+            #da qui in poi scrivo solo gli output
+            riga2 = infile.readline()
+            riga2 = riga2.strip()
+            outfile.write(riga2 + " " + "f obiettivo: %f, " % fObb + "Time: {}, Status: /, Best Bound: /\n".format(execution_time))
+            # print(riga2.strip() + " " + "f obiettivo: %f, " % fObb + "Time: {}, Status: /, Best Bound: /\n".format(execution_time))
+
+        elif line == '\n':
+            continue
+        else:
+            break
+
+infile.close()
+outfile.close()
+
+
