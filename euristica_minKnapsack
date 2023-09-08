@@ -1,6 +1,4 @@
 import ast
-import numpy as np
-import random
 import time
 # questa funzione mi ritorna una lista di chiavi associate al valore passato
 # quindi anche 2 indici associati allo stesso rapporto
@@ -43,7 +41,6 @@ with open("test_finale.txt", "r", encoding="utf-8") as infile, open("test_comple
             c = ast.literal_eval(dati[3])
             pesi = dati[4].strip("[]").split()
             w = [float(x) for x in pesi]
-            print(len(c), len(w))
             #qua inizia l'algoritmo dopo aver letto tutti i dati in input
             start_time = time.time()
             #ALGORITMO EURISTICO
@@ -98,11 +95,12 @@ with open("test_finale.txt", "r", encoding="utf-8") as infile, open("test_comple
             # rilevo il tempo di esecuzione
             end_time = time.time()
             execution_time = end_time - start_time
+            selected.sort()
+            print("Selected: {}\n".format(selected))
             #da qui in poi scrivo solo gli output
             riga2 = infile.readline()
             riga2 = riga2.strip()
             outfile.write(riga2 + " " + "f obiettivo: %f, " % fObb + "Time: {}, Status: /, Best Bound: /\n".format(execution_time))
-            # print(riga2.strip() + " " + "f obiettivo: %f, " % fObb + "Time: {}, Status: /, Best Bound: /\n".format(execution_time))
 
         elif line == '\n':
             continue
